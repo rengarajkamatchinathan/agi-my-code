@@ -31,3 +31,7 @@ export const CORNER = supportsUnicode ? "└" : "`-";
 export const TREE_BRANCH = supportsUnicode ? "├" : "|-";
 export const TREE_VERTICAL = supportsUnicode ? "│" : "| ";
 export const TREE_CORNER = supportsUnicode ? "└" : "`-";
+
+// New glyphs for dashboard UI
+export const STATUS_DOT = supportsUnicode ? "◉" : "*";
+export const STRIPE_BLOCK = supportsUnicode ? "▀" : "=";

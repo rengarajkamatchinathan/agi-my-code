@@ -35,3 +35,35 @@ export function pickTip(): string {
 export function stripTipPrefix(tip: string): string {
   return tip.replace(/^Tip:\s*/, "");
 }
+
+export function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return "Night shift. Let's build.";
+  if (h < 12) return "Morning. Systems ready.";
+  if (h < 17) return "Afternoon session initialized.";
+  if (h < 21) return "Evening. Neural pathways active.";
+  return "Late night mode. Focus engaged.";
+}
+
+export const TAGLINES = [
+  "Autonomous cognition at your fingertips.",
+  "Think less. Build more.",
+  "Your code. My attention. Full context.",
+  "Neural bridge established.",
+  "Reasoning engine online.",
+  "Latent space explorer ready.",
+  "Attention heads locked on target.",
+  "Context window: clear. Objective: yours.",
+  "Beyond autocomplete.",
+];
+
+let lastTagline = "";
+export function pickTagline(): string {
+  if (TAGLINES.length === 0) return "";
+  let t = lastTagline;
+  while (t === lastTagline) {
+    t = TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
+  }
+  lastTagline = t;
+  return t;
+}

@@ -1,10 +1,13 @@
 import React from "react";
+import React, { useMemo } from "react";
 import { Box, Text, useStdout } from "ink";
 import type { ChatProvider } from "../agent/provider.js";
 import { theme } from "./theme.js";
 import { supportsUnicode } from "./terminal.js";
 import { GIT_BRANCH, HORIZONTAL_LINE, BULLET, TEARDROP_ASTERISK } from "./figures.js";
 import { pickTip, stripTipPrefix, WHATS_NEW } from "./tips.js";
+import { GIT_BRANCH, HORIZONTAL_LINE, STRIPE_BLOCK, STATUS_DOT, TEARDROP_ASTERISK, METER_FILL, METER_EMPTY } from "./figures.js";
+import { getGreeting, pickTagline } from "./tips.js";
 
 interface Props {
   model: string;
@@ -22,11 +25,27 @@ interface Props {
 const FOX = supportsUnicode
   ? ["/\\   /\\", "( •.• )", " >   < "]
   : ["/\\_/\\", "( o.o )", " > ^ < "];
+const LOGO = [
+  "    ███╗   ███╗██╗   ██╗     ██████╗ ██████╗ ██████╗ ███████╗",
+  "    ████╗ ████║╚██╗ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝",
+  "    ██╔████╔██║ ╚████╔╝     ██║     ██║   ██║██║  ██║█████╗  ",
+  "    ██║╚██╔╝██║  ╚██╔╝      ██║     ██║   ██║██║  ██║██╔══╝  ",
+  "    ██║ ╚═╝ ██║   ██║       ╚██████╗╚██████╔╝██████╔╝███████╗",
+  "    ╚═╝     ╚═╝   ╚═╝        ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝"
+];
 
 // Static identity panel. Only data known synchronously at first paint may be
 // used here — the banner is rendered once into Ink's <Static> scrollback, so
 // anything async (e.g. the active account) would render blank/stale. Live
 // session state (model, provider, account, context) lives in the status bar.
+const LOGO_COLORS = [
+  "#7ce38b",
+  "#76db98",
+  "#70d3a5",
+  "#6acbb2",
+  "#64c3bf",
+  "#5ebbcb"
+];
 
 function shortPath(p: string): string {
   const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
@@ -68,10 +87,16 @@ export function Banner({ model, cwd, provider, branch, version }: Props) {
   const path = shortPath(cwd);
   const providerName = provider.info.name;
   const modelLabel = friendlyModel(model);
+  
+  // Memoize greeting and tagline so they don't change on re-renders (though Banner shouldn't re-render much)
+  const greeting = useMemo(() => getGreeting(), []);
+  const tagline = useMemo(() => pickTagline(), []);
 
   // Fall back to a single-column box on narrow terminals, and to a plain text
   // mark when unicode box-drawing isn't reliable.
   const compact = !supportsUnicode || cols < 64;
+  const compact = !supportsUnicode || cols < 70;
+  
   if (compact) {
     const meta = clip(`${modelLabel} · ${providerName}`, cols - 4);
     const loc = clip(`${path}${branch ? `  ${GIT_BRANCH} ${branch}` : ""}`, cols - 4);
@@ -81,9 +106,11 @@ export function Banner({ model, cwd, provider, branch, version }: Props) {
           {TEARDROP_ASTERISK} my-code{version ? ` v${version}` : ""}
         </Text>
         <Text bold color={theme.text}>Welcome back!</Text>
+        <Text bold color={theme.text}>{greeting}</Text>
         <Text color={theme.muted} dimColor>{meta}</Text>
         <Text color={theme.muted} dimColor>{loc}</Text>
         {tip ? <Text color={theme.suggestion}>{TEARDROP_ASTERISK} {clip(tip, cols - 4)}</Text> : null}
+        {tagline ? <Text color={theme.suggestion}>{TEARDROP_ASTERISK} {clip(tagline, cols - 4)}</Text> : null}
       </Box>
     );
   }
@@ -94,6 +121,8 @@ export function Banner({ model, cwd, provider, branch, version }: Props) {
   const contentW = W - 4;   // columns between "│ " and " │"
   const LEFT_W = 26;
   const RIGHT_W = contentW - LEFT_W;
+  // --- Full Dashboard Layout ---
+  const W = Math.max(cols, 70);
 
   // Top border carries the version as a title; bottom is a plain rule.
   const title = ` my-code v${version} `;
@@ -101,6 +130,13 @@ export function Banner({ model, cwd, provider, branch, version }: Props) {
   const topBorder =
     "╭" + head + HORIZONTAL_LINE.repeat(Math.max(interior - head.length, 0)) + "╮";
   const bottomBorder = "╰" + HORIZONTAL_LINE.repeat(interior) + "╯";
+  return (
+    <Box flexDirection="column" marginY={1}>
+      {/* Top Stripe */}
+      <Text color={theme.borderActive}>{STRIPE_BLOCK.repeat(W)}</Text>
+      
+      {/* Spacer */}
+      <Text> </Text>
 
   // Left column: mascot, then session identity.
   const metaModel = clip(modelLabel, LEFT_W);
@@ -118,6 +154,18 @@ export function Banner({ model, cwd, provider, branch, version }: Props) {
       {clip(`${path}${branch ? `  ${GIT_BRANCH} ${branch}` : ""}`, LEFT_W)}
     </Text>,
   ];
+      {/* Logo block */}
+      {LOGO.map((line, i) => (
+        <Box key={`logo-${i}`}>
+          <Text color={LOGO_COLORS[i] || theme.accent} bold>
+            {line}
+          </Text>
+          {/* Inject version at the bottom right of the logo block */}
+          {i === LOGO.length - 1 && (
+            <Text color={theme.muted} dimColor>    v{version}</Text>
+          )}
+        </Box>
+      ))}
 
   // Right column: a tip, then what's new.
   const news = WHATS_NEW.slice(0, 2);
@@ -130,6 +178,8 @@ export function Banner({ model, cwd, provider, branch, version }: Props) {
       <Text key={`new${i}`} color={theme.muted}>{clip(`${BULLET} ${item}`, RIGHT_W)}</Text>
     )),
   ];
+      {/* Spacer */}
+      <Text> </Text>
 
   const rowCount = Math.max(leftCells.length, rightCells.length);
   const rows: React.ReactNode[] = [];
@@ -141,6 +191,36 @@ export function Banner({ model, cwd, provider, branch, version }: Props) {
         <Box width={LEFT_W}>{i >= 0 ? leftCells[i] ?? <Text> </Text> : <Text> </Text>}</Box>
         <Box width={RIGHT_W}>{i >= 0 ? rightCells[i] ?? <Text> </Text> : <Text> </Text>}</Box>
         <Text color={theme.border}> │</Text>
+      {/* Status Lines Layout (2 columns) */}
+      <Box width={W} flexDirection="row" justifyContent="space-between">
+        {/* Left Side: Telemetry */}
+        <Box flexDirection="column">
+          <Text>
+            <Text color={theme.accent}>{STATUS_DOT}</Text>
+            <Text color={theme.text}> PROVIDER   </Text>
+            <Text color={theme.muted}>{providerName} · {modelLabel}</Text>
+          </Text>
+          <Text>
+            <Text color={theme.accent}>{STATUS_DOT}</Text>
+            <Text color={theme.text}> WORKSPACE  </Text>
+            <Text color={theme.muted}>{path} {branch ? `  ${GIT_BRANCH} ${branch}` : ""}</Text>
+          </Text>
+          <Text>
+            <Text color={theme.accent}>{STATUS_DOT}</Text>
+            <Text color={theme.text}> CONTEXT    </Text>
+            <Text color={theme.meterFill}>{METER_FILL}{METER_FILL}</Text>
+            <Text color={theme.meterEmpty}>{METER_EMPTY.repeat(4)}</Text>
+            <Text color={theme.muted}> fresh</Text>
+          </Text>
+        </Box>
+
+        {/* Right Side: Identity */}
+        <Box flexDirection="column" alignItems="flex-end">
+          <Text bold color={theme.text}>{greeting}</Text>
+          <Text color={theme.suggestion}>{tagline}</Text>
+          <Text> </Text>
+          <Text color={theme.muted} dimColor>esc to interrupt · ctrl+o expand output</Text>
+        </Box>
       </Box>
     );
   }
@@ -150,6 +230,8 @@ export function Banner({ model, cwd, provider, branch, version }: Props) {
       <Text color={theme.border}>{topBorder}</Text>
       {rows}
       <Text color={theme.border}>{bottomBorder}</Text>
+      {/* Bottom Rule */}
+      <Text color={theme.border}>{HORIZONTAL_LINE.repeat(W)}</Text>
     </Box>
   );
 }
